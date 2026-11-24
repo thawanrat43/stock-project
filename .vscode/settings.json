@@ -1,0 +1,16 @@
+{
+    "sqltools.connections": [
+        {
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "askForPassword": true,
+            "driver": "PostgreSQL",
+            "name": "DRR Stock",
+            "group": "127.0.0.1",
+            "database": "drr_stock",
+            "username": "postgres"
+        }
+    ]
+}
