@@ -1,0 +1,123 @@
+export const USER_ROLES = [
+  'ผู้ดูแลระบบ',
+  'หัวหน้าคลังสินค้า',
+  'เจ้าหน้าที่ตรวจนับ',
+  'ฝ่ายรับสินค้าเข้า',
+  'เจ้าหน้าที่คลังสินค้า',
+];
+
+export const ROLE_DEFAULT_PERMISSIONS = {
+  ผู้ดูแลระบบ: {
+    adjustStock: true,
+    receiveInbound: true,
+    exportCsv: true,
+    manageUsers: true,
+  },
+  หัวหน้าคลังสินค้า: {
+    adjustStock: true,
+    receiveInbound: true,
+    exportCsv: true,
+    manageUsers: false,
+  },
+  เจ้าหน้าที่ตรวจนับ: {
+    adjustStock: true,
+    receiveInbound: false,
+    exportCsv: true,
+    manageUsers: false,
+  },
+  ฝ่ายรับสินค้าเข้า: {
+    adjustStock: false,
+    receiveInbound: true,
+    exportCsv: false,
+    manageUsers: false,
+  },
+  เจ้าหน้าที่คลังสินค้า: {
+    adjustStock: true,
+    receiveInbound: false,
+    exportCsv: false,
+    manageUsers: false,
+  },
+};
+
+export const INITIAL_USERS = [
+  {
+    id: 'usr-001',
+    code: 'USR-001',
+    name: 'สมชาย กิตติพงศ์',
+    email: 'somchai@apex.co.th',
+    role: 'ผู้ดูแลระบบ',
+    zones: ['Zone A', 'Zone B', 'Zone C', 'Zone D'],
+    status: 'Active',
+    lastActive: '2026-11-22T22:15:00Z',
+    permissions: {
+      adjustStock: true,
+      receiveInbound: true,
+      exportCsv: true,
+      manageUsers: true,
+    },
+  },
+  {
+    id: 'usr-002',
+    code: 'USR-002',
+    name: 'พัชรา นันทวัฒน์',
+    email: 'patchara@apex.co.th',
+    role: 'หัวหน้าคลังสินค้า',
+    zones: ['Zone A', 'Zone D'],
+    status: 'Active',
+    lastActive: '2026-11-22T21:50:00Z',
+    permissions: {
+      adjustStock: true,
+      receiveInbound: true,
+      exportCsv: true,
+      manageUsers: false,
+    },
+  },
+  {
+    id: 'usr-003',
+    code: 'USR-003',
+    name: 'อนุชา พงศ์ไพบูลย์',
+    email: 'anucha@apex.co.th',
+    role: 'เจ้าหน้าที่ตรวจนับ',
+    zones: ['Zone B', 'Zone C'],
+    status: 'Active',
+    lastActive: '2026-11-22T20:30:00Z',
+    permissions: {
+      adjustStock: true,
+      receiveInbound: false,
+      exportCsv: true,
+      manageUsers: false,
+    },
+  },
+  {
+    id: 'usr-004',
+    code: 'USR-004',
+    name: 'กมลชนก ศรีวิไล',
+    email: 'kamonchanok@apex.co.th',
+    role: 'ฝ่ายรับสินค้าเข้า',
+    zones: ['Zone D'],
+    status: 'Pending',
+    lastActive: '',
+    permissions: {
+      adjustStock: false,
+      receiveInbound: true,
+      exportCsv: false,
+      manageUsers: false,
+    },
+  },
+  {
+    id: 'usr-005',
+    code: 'USR-005',
+    name: 'ธนวัฒน์ อินทร์แก้ว',
+    email: 'thanawat@apex.co.th',
+    role: 'เจ้าหน้าที่คลังสินค้า',
+    zones: ['Zone C'],
+    status: 'Suspended',
+    lastActive: '2026-11-18T11:20:00Z',
+    permissions: {
+      adjustStock: true,
+      receiveInbound: false,
+      exportCsv: false,
+      manageUsers: false,
+    },
+  },
+];

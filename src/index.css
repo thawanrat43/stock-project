@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Hanken Grotesk", "Noto Sans Thai", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-canvas: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-surface-low: #EFF4FF;
+  --color-surface-nested: #F1F5F9;
+  --color-surface-container: #E5EEFF;
+  --color-primary: #1E40AF;
+  --color-primary-deep: #00288E;
+  --color-primary-hover: #1E3A8A;
+  --color-secondary: #059669;
+  --color-tertiary: #D97706;
+  --color-critical: #DC2626;
+  --color-ink: #0F172A;
+  --color-ink-muted: #444653;
+  --color-slate-border: rgba(100, 116, 139, 0.16);
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background-color: #F8FAFC;
+    color: #0F172A;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.apex-card {
+  background-color: #FFFFFF;
+  border: 1px solid rgba(100, 116, 139, 0.16);
+  border-radius: 0.5rem;
+}
+
+.apex-popover {
+  box-shadow: 0px 4px 12px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(100, 116, 139, 0.2);
+}
+
+.apex-sheet {
+  box-shadow: 0px -8px 24px rgba(15, 23, 42, 0.12);
+  border-top: 1px solid rgba(100, 116, 139, 0.2);
+}
+
+.apex-input {
+  background-color: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 0.25rem;
+  transition: border-color 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.apex-input:focus {
+  outline: none;
+  border: 2px solid #1E40AF;
+}
