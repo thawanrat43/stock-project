@@ -5,6 +5,7 @@ import cors from 'cors';
 import pool from './config/db.js';
 import 'dotenv/config';
 import productsRouter from './routes/products.js';
+import stockRouter from './routes/stock.js';
 const app = express();
 
 app.use(cors({
@@ -12,6 +13,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use('/api/stock', stockRouter);
 app.use('/api/products', productsRouter);
 // ตรวจสอบ Backend
 // app.get('/api/health', (req, res) => {

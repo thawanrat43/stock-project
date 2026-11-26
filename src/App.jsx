@@ -79,7 +79,9 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('reports');
   const [inventorySubView, setInventorySubView] = useState('list');
-  const [skus, setSkus] = useState(() => saved?.skus || INITIAL_SKUS);
+  const [skus, setSkus] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState('');
   const [logs, setLogs] = useState(() => saved?.logs || INITIAL_AUDIT_LOGS);
   const [purchaseOrders, setPurchaseOrders] = useState(
     () => saved?.purchaseOrders || INITIAL_INBOUND_POS
@@ -88,9 +90,7 @@ export default function App() {
     () => (Array.isArray(saved?.users) ? saved.users : INITIAL_USERS)
   );
 
-  const [selectedSkuId, setSelectedSkuId] = useState(
-    () => (saved?.skus || INITIAL_SKUS)[0]?.id || null
-  );
+  const [selectedSkuId, setSelectedSkuId] = useState(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [addSkuOpen, setAddSkuOpen] = useState(false);
 
@@ -115,7 +115,58 @@ export default function App() {
     const timer = setTimeout(() => setToast(null), 3200);
     return () => clearTimeout(timer);
   }, [toast]);
+  // โหลดข้อมูลสินค้าจาก PostgreSQL ผ่าน Backend API
+  useEffect(() => {
+    let cancelled = false;
 
+    const loadProducts = async () => {
+      try {
+        setProductsLoading(true);
+        setProductsError('');
+
+        const response = await fetch(
+          'http://localhost:4000/api/products'
+        );
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(
+            result.message || 'ไม่สามารถโหลดข้อมูลสินค้าได้'
+          );
+        }
+
+        if (!cancelled) {
+          setSkus(result.data);
+
+          setSelectedSkuId((currentId) => {
+            if (
+              currentId &&
+              result.data.some((item) => item.id === currentId)
+            ) {
+              return currentId;
+            }
+
+            return result.data[0]?.id || null;
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setProductsError(error.message);
+        }
+      } finally {
+        if (!cancelled) {
+          setProductsLoading(false);
+        }
+      }
+    };
+
+    loadProducts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const showToast = (message, tone = 'success') => {
     setToast({ id: Date.now(), message, tone });
   };
@@ -188,45 +239,88 @@ export default function App() {
     }
   };
 
-  const handleApplyAdjustment = ({ skuId, newQuantity, action, note }) => {
-    const target = skus.find((item) => item.id === skuId);
-    if (!target) return;
-
-    const clampedQty = Math.max(0, newQuantity);
-    const delta = clampedQty - target.quantity;
-    const nowIso = new Date().toISOString();
-
-    setSkus((prev) =>
-      prev.map((item) =>
-        item.id === skuId
-          ? {
-              ...item,
-              quantity: clampedQty,
-              lastVerified: nowIso,
-              verifiedBy: 'หัวหน้าคลังสินค้า',
-            }
-          : item
-      )
+  const handleApplyAdjustment = async ({
+    skuId,
+    newQuantity,
+    action,
+    note,
+  }) => {
+    const target = skus.find(
+      (item) => Number(item.id) === Number(skuId)
     );
 
-    appendLog({
-      skuId: target.id,
-      sku: target.sku,
-      itemName: target.nameTh || target.name,
-      action,
-      delta,
-      resultingQty: clampedQty,
-      unit: target.unit,
-      bin: target.bin,
-      note,
-    });
+    if (!target) {
+      showToast('ไม่พบข้อมูลสินค้า', 'warning');
+      return;
+    }
 
-    showToast(
-      `อัปเดต ${target.sku} เป็น ${formatNumber(clampedQty)} ${target.unit} แล้ว`,
-      action === 'Discrepancy' ? 'warning' : 'success'
-    );
+    try {
+      const response = await fetch(
+        'http://localhost:4000/api/stock/adjust',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            productId: skuId,
+            newQuantity,
+            action,
+            note,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message || 'ไม่สามารถบันทึกสต็อกได้'
+        );
+      }
+
+      // โหลดข้อมูลสินค้าล่าสุดจาก PostgreSQL
+      const productsResponse = await fetch(
+        'http://localhost:4000/api/products'
+      );
+
+      const productsResult = await productsResponse.json();
+
+      if (!productsResponse.ok || !productsResult.success) {
+        throw new Error('บันทึกสำเร็จ แต่โหลดข้อมูลสินค้าใหม่ไม่สำเร็จ');
+      }
+
+      setSkus(productsResult.data);
+
+      // บันทึกประวัติที่ได้รับกลับจาก Backend
+      const movement = result.data;
+
+      appendLog({
+        id: movement.movementId,
+        skuId: movement.productId,
+        sku: movement.sku,
+        itemName: target.nameTh || target.name,
+        action: movement.action,
+        delta: movement.delta,
+        resultingQty: movement.quantity,
+        unit: movement.unit,
+        bin: target.bin,
+        timestamp: movement.createdAt,
+        operator: authUser?.operatorName || 'ผู้ใช้งานระบบ',
+        note: movement.note,
+      });
+
+      showToast(
+        `บันทึก ${target.sku} สำเร็จ ยอดคงเหลือ ${formatNumber(
+          movement.quantity
+        )} ${movement.unit}`
+      );
+    } catch (error) {
+      console.error('Save stock error:', error);
+
+      showToast(error.message || 'เกิดข้อผิดพลาดในการบันทึก', 'warning');
+    }
   };
-
   const handleQuickStep = (skuId, step) => {
     const target = skus.find((item) => item.id === skuId);
     if (!target) return;
@@ -522,7 +616,17 @@ export default function App() {
         <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#E2E8F0] text-[13px]">
           <div className="text-[#444653]">
             ผู้ปฏิบัติงาน:{' '}
-            <span className="font-semibold text-[#0F172A]">
+              {productsLoading && (
+                <div className="p-3 text-sm text-blue-700 bg-blue-50 rounded">
+                  กำลังโหลดข้อมูลสินค้าจากฐานข้อมูล...
+                </div>
+              )}
+              {productsError && (
+                <div className="p-3 text-sm text-red-700 bg-red-50 rounded">
+                  โหลดข้อมูลสินค้าไม่สำเร็จ: {productsError}
+                </div>
+              )}
+              <span className="font-semibold text-[#0F172A]">
               {authUser.operatorName}
             </span>
           </div>
