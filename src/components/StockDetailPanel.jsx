@@ -24,6 +24,7 @@ const OPERATION_MODES = [
 export default function StockDetailPanel({
   item,
   itemLogs,
+  locations = [],
   onApplyAdjustment,
   onVerifyItem,
   onTransferBin,
@@ -33,8 +34,7 @@ export default function StockDetailPanel({
   const [inputValue, setInputValue] = useState(item ? String(item.quantity) : '0');
   const [note, setNote] = useState('');
   const [isTransferOpen, setIsTransferOpen] = useState(false);
-  const [targetBin, setTargetBin] = useState(item ? item.bin : '');
-  const [targetZone, setTargetZone] = useState(item ? item.zone : 'Zone A');
+  const [targetLocationId, setTargetLocationId] = useState('');
 
   useEffect(() => {
     if (!item) return;
@@ -43,8 +43,7 @@ export default function StockDetailPanel({
     } else {
       setInputValue('10');
     }
-    setTargetBin(item.bin);
-    setTargetZone(item.zone);
+    setTargetLocationId('');
     setIsTransferOpen(false);
     setNote('');
   }, [item?.id]);
@@ -121,12 +120,21 @@ export default function StockDetailPanel({
     setNote('');
   };
 
-  const handleTransferSubmit = (e) => {
-    e.preventDefault();
-    if (!targetBin.trim()) return;
-    onTransferBin(item.id, targetZone, targetBin.trim().toUpperCase());
+const handleTransferSubmit = async (e) => {
+  e.preventDefault();
+
+  if (!targetLocationId) return;
+
+  const success = await onTransferBin(
+    item.id,
+    Number(targetLocationId)
+  );
+
+  if (success) {
     setIsTransferOpen(false);
-  };
+    setTargetLocationId('');
+  }
+};
 
   const primaryTitle = item.nameTh || item.name;
   const secondaryTitle = item.nameTh ? item.name : '';
@@ -350,23 +358,34 @@ export default function StockDetailPanel({
             ย้ายสินค้าไปยังตำแหน่งจัดเก็บใหม่
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <select
-              value={targetZone}
-              onChange={(e) => setTargetZone(e.target.value)}
-              className="apex-input h-[40px] px-2.5 text-[13px] text-[#0F172A]"
-            >
-              <option value="Zone A">Zone A</option>
-              <option value="Zone B">Zone B</option>
-              <option value="Zone C">Zone C</option>
-              <option value="Zone D">Zone D</option>
-            </select>
-            <input
-              type="text"
-              value={targetBin}
-              onChange={(e) => setTargetBin(e.target.value)}
-              placeholder="LOC-A12-04"
-              className="apex-input h-[40px] px-2.5 font-mono text-[13px] text-[#0F172A] uppercase"
-            />
+            <div>
+              <label className="block text-[12px] text-[#64748B] mb-1">
+                เลือกตำแหน่งจัดเก็บปลายทาง
+              </label>
+
+              <select
+                value={targetLocationId}
+                onChange={(e) => setTargetLocationId(e.target.value)}
+                required
+                className="apex-input w-full h-[42px] px-3 text-[13px] text-[#0F172A]"
+              >
+                <option value="">-- เลือก Zone และ Bin --</option>
+
+                {locations
+                  .filter((location) =>
+                    !item.locations?.some(
+                      (current) =>
+                        Number(current.locationId) === Number(location.id) &&
+                        Number(current.quantity) > 0
+                    )
+                  )
+                  .map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.zone} · {location.bin}
+                    </option>
+                  ))}
+              </select>
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <button

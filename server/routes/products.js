@@ -32,7 +32,10 @@ router.get('/', async (req, res) => {
               'bin', wl.bin,
               'quantity', sb.quantity
             )
-          ) FILTER (WHERE wl.id IS NOT NULL),
+          ) FILTER ) FILTER (
+              WHERE wl.id IS NOT NULL
+                AND sb.quantity > 0
+            ),
           '[]'
         ) AS locations
       FROM products p

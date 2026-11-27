@@ -98,7 +98,7 @@ export default function App() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [zoneFilter, setZoneFilter] = useState('All Zones');
   const [toast, setToast] = useState(null);
-
+  const [locations, setLocations] = useState([]);
   useEffect(() => {
     try {
       localStorage.setItem(
@@ -115,6 +115,39 @@ export default function App() {
     const timer = setTimeout(() => setToast(null), 3200);
     return () => clearTimeout(timer);
   }, [toast]);
+  useEffect(() => {
+    const loadDatabaseData = async () => {
+      try {
+        const [productsResponse, locationsResponse] = await Promise.all([
+          fetch('http://localhost:4000/api/products'),
+          fetch('http://localhost:4000/api/locations'),
+        ]);
+
+        const productsResult = await productsResponse.json();
+        const locationsResult = await locationsResponse.json();
+
+        if (!productsResponse.ok || !productsResult.success) {
+          throw new Error('ไม่สามารถโหลดข้อมูลสินค้าจากฐานข้อมูลได้');
+        }
+
+        if (!locationsResponse.ok || !locationsResult.success) {
+          throw new Error('ไม่สามารถโหลดตำแหน่งจัดเก็บได้');
+        }
+
+        setSkus(productsResult.data);
+        setLocations(locationsResult.data);
+
+        if (productsResult.data.length > 0) {
+          setSelectedSkuId(productsResult.data[0].id);
+        }
+      } catch (error) {
+        console.error('Load database data error:', error);
+        showToast(error.message, 'warning');
+      }
+    };
+
+    loadDatabaseData();
+  }, []);
   // โหลดข้อมูลสินค้าจาก PostgreSQL ผ่าน Backend API
   useEffect(() => {
     let cancelled = false;
@@ -363,14 +396,85 @@ export default function App() {
     showToast(`ยืนยันยอด ${target.sku} (${formatNumber(target.quantity)} ${target.unit}) เรียบร้อย`);
   };
 
-  const handleTransferBin = (skuId, nextZone, nextBin) => {
-    const target = skus.find((item) => item.id === skuId);
-    if (!target) return;
+  
+const handleTransferBin = async (skuId, destinationLocationId) => {
+  const target = skus.find(
+    (item) => Number(item.id) === Number(skuId)
+  );
 
-    setSkus((prev) =>
-      prev.map((item) =>
-        item.id === skuId ? { ...item, zone: nextZone, bin: nextBin } : item
-      )
+  if (!target) {
+    showToast('ไม่พบข้อมูลสินค้า', 'warning');
+    return false;
+  }
+
+  // เลือกเฉพาะตำแหน่งที่มียอดมากกว่า 0
+  const activeLocations = (target.locations || []).filter(
+    (location) => Number(location.quantity) > 0
+  );
+
+  // เวอร์ชันนี้รองรับการย้ายจาก Bin ต้นทางเดียว
+  if (activeLocations.length !== 1) {
+    showToast(
+      'สินค้านี้มีหลายตำแหน่งหรือไม่มียอด กรุณาตรวจสอบข้อมูลก่อนย้าย',
+      'warning'
+    );
+    return false;
+  }
+
+  const source = activeLocations[0];
+
+  const destination = locations.find(
+    (location) =>
+      Number(location.id) === Number(destinationLocationId)
+  );
+
+  if (!destination) {
+    showToast('ไม่พบตำแหน่งปลายทาง', 'warning');
+    return false;
+  }
+
+  try {
+    const response = await fetch(
+      'http://localhost:4000/api/stock/transfer',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId: target.id,
+          sourceLocationId: source.locationId,
+          destinationZone: destination.zone,
+          destinationBin: destination.bin,
+          quantity: Number(source.quantity),
+          note: `ย้ายจาก ${source.zone} · ${source.bin} ไปยัง ${destination.zone} · ${destination.bin}`,
+        }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'ย้ายสินค้าไม่สำเร็จ');
+    }
+
+    // โหลดสินค้าใหม่จาก PostgreSQL
+    const productsResponse = await fetch(
+      'http://localhost:4000/api/products'
+    );
+
+    const productsResult = await productsResponse.json();
+
+    if (!productsResponse.ok || !productsResult.success) {
+      throw new Error(
+        'ย้ายสำเร็จแล้ว แต่โหลดข้อมูลล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้าเว็บ'
+      );
+    }
+
+    setSkus(productsResult.data);
+
+    const updatedItem = productsResult.data.find(
+      (item) => Number(item.id) === Number(skuId)
     );
 
     appendLog({
@@ -379,14 +483,24 @@ export default function App() {
       itemName: target.nameTh || target.name,
       action: 'Transfer',
       delta: 0,
-      resultingQty: target.quantity,
+      resultingQty: Number(source.quantity),
       unit: target.unit,
-      bin: nextBin,
-      note: `ย้ายจาก ${target.bin} ไปยัง ${nextZone} · ${nextBin}`,
+      bin: destination.bin,
+      note: `ย้ายจาก ${source.bin} ไปยัง ${destination.zone} · ${destination.bin}`,
     });
 
-    showToast(`ย้าย ${target.sku} ไปยังตำแหน่ง ${nextBin} แล้ว`);
-  };
+    showToast(
+      `ย้าย ${target.sku} ไปยัง ${destination.bin} สำเร็จ`
+    );
+
+    return true;
+  } catch (error) {
+    console.error('Transfer stock error:', error);
+    showToast(error.message || 'เกิดข้อผิดพลาดในการย้ายสินค้า', 'warning');
+    return false;
+  }
+};
+
 
   const handleReceiveLineItem = (poId, poNumber, skuId, qty) => {
     const target = skus.find((item) => item.id === skuId);
@@ -891,6 +1005,7 @@ export default function App() {
                 <StockDetailPanel
                   item={selectedSku}
                   itemLogs={selectedSkuLogs}
+                  locations={locations}
                   onApplyAdjustment={handleApplyAdjustment}
                   onVerifyItem={handleVerifyItem}
                   onTransferBin={handleTransferBin}
